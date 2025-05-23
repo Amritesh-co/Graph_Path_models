@@ -3,12 +3,13 @@ import { Canvas } from "@react-three/fiber";
 import { OrbitControls, Text } from "@react-three/drei";
 import * as THREE from "three";
 import useGraphStore from "../store/graphStore";
+import useDarkMode from "../utils/useDarkMode"; // ✅ Dark mode hook
 
 export default function GraphViewer3D() {
   const { nodes, edges } = useGraphStore();
+  const isDark = useDarkMode(); // ✅ Detects dark mode
   const SPACE_SIZE = 600;
 
-  // 1️⃣ Place nodes randomly in a 600³ cube
   const nodePositions = useMemo(() => {
     const m = new Map();
     nodes.forEach((node) => {
@@ -20,14 +21,12 @@ export default function GraphViewer3D() {
     return m;
   }, [nodes]);
 
-  // 2️⃣ Compute the geometric center of all nodes
   const center = useMemo(() => {
     if (nodes.length === 0) return new THREE.Vector3(0, 0, 0);
     const sum = nodes.reduce((acc, node) => acc.add(nodePositions.get(node.id)), new THREE.Vector3());
     return sum.divideScalar(nodes.length);
   }, [nodes, nodePositions]);
 
-  // 3️⃣ Build the edge‐lines geometry
   const edgeLines = useMemo(() => {
     const pts = [];
     edges.forEach(({ from, to }) => {
@@ -41,16 +40,17 @@ export default function GraphViewer3D() {
   return (
     <div
       style={{
-        width: "80vw",          // 80% of viewport width
-        height: "85vh",         // 85% of viewport height
-        margin: "20px auto",    // center horizontally
+        width: "80vw",
+        height: "85vh",
+        margin: "20px auto",
         borderRadius: 8,
         boxShadow: "0 0 12px rgba(0,0,0,0.2)",
         overflow: "hidden",
+        backgroundColor: isDark ? "#111" : "#fff" // ✅ Dark/light background
       }}
     >
       {nodes.length === 0 ? (
-        <p style={{ color: "#aaa", textAlign: "center", paddingTop: 40 }}>
+        <p style={{ color: isDark ? "#ccc" : "#333", textAlign: "center", paddingTop: 40 }}>
           Upload a CSV to visualize the graph
         </p>
       ) : (
@@ -60,11 +60,8 @@ export default function GraphViewer3D() {
             fov: 50,
           }}
         >
-          {/* Lights */}
           <ambientLight intensity={0.5} />
           <pointLight position={[100, 100, 100]} />
-
-          {/* Helpers & Box */}
           <axesHelper args={[SPACE_SIZE / 2]} />
           <gridHelper
             args={[SPACE_SIZE, 50]}
@@ -76,12 +73,10 @@ export default function GraphViewer3D() {
             <meshBasicMaterial color="white" transparent opacity={0.05} wireframe />
           </mesh>
 
-          {/* Edges */}
           <lineSegments geometry={edgeLines}>
-            <lineBasicMaterial color="gray" />
+            <lineBasicMaterial color={isDark ? "lightgray" : "gray"} />
           </lineSegments>
 
-          {/* Nodes */}
           {nodes.map((node) => {
             const pos = nodePositions.get(node.id);
             return (
@@ -90,7 +85,7 @@ export default function GraphViewer3D() {
                 <meshStandardMaterial color="orange" />
                 <Text
                   fontSize={4}
-                  color="black"
+                  color={isDark ? "white" : "black"} // ✅ Node label color
                   anchorX="center"
                   anchorY="middle"
                   position={[0, 0, 3]}
@@ -101,7 +96,6 @@ export default function GraphViewer3D() {
             );
           })}
 
-          {/* OrbitControls centered on the computed center */}
           <OrbitControls
             target={[center.x, center.y, center.z]}
             enableZoom
