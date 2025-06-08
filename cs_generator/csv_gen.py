@@ -17,8 +17,14 @@ def generate_connected_graph_csv():
         unvisited = set(node_names)
         visited = set()
         edges = []
+        notes = {}
 
-        # Start from the first node
+        # Randomly assign "Start" and "End" notes
+        start_node = random.choice(node_names)
+        end_node = random.choice([n for n in node_names if n != start_node])
+        notes[start_node] = "Start"
+        notes[end_node] = "End"
+
         current = node_names[0]
         unvisited.remove(current)
         visited.add(current)
@@ -26,7 +32,8 @@ def generate_connected_graph_csv():
         while unvisited:
             next_node = random.choice(list(unvisited))
             connect_to = random.choice(list(visited))
-            edges.append((connect_to, next_node))
+            weight = random.randint(1, 20)  # 🔧 INTEGER weights only
+            edges.append((connect_to, next_node, weight))
             visited.add(next_node)
             unvisited.remove(next_node)
 
@@ -37,10 +44,12 @@ def generate_connected_graph_csv():
 
         with open(file_path, mode='w', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow(["from", "to"])
-            writer.writerows(edges)
+            writer.writerow(["from", "to", "weight", "note"])
+            for from_node, to_node, weight in edges:
+                note = notes.get(to_node, "")  # add note to 'to' node
+                writer.writerow([from_node, to_node, weight, note])
 
-        print(f"✅ Connected graph with {num_nodes - 1} edges saved at: {file_path}")
+        print(f"✅ Connected graph with integer weights saved at: {file_path}")
 
     except ValueError:
         print("❌ Invalid input. Please enter numeric values.")
