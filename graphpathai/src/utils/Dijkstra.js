@@ -1,18 +1,29 @@
-export function dijkstra(nodes, edges, startId, endId) {
-  console.log("✅ Dijkstra running for:", { startId, endId });
+import {
+  MinHeap,
+  buildAdjacency,
+  reconstructPath,
+  noPath,
+  foundPath,
+  assertEndpoints,
+} from "./graph";
 
-  // Step 1: Build weighted adjacency list
-  const graph = new Map();
-  nodes.forEach((node) => graph.set(node.id, []));
-  edges.forEach(({ from, to, weight }) => {
-    const w = parseFloat(weight ?? 1);
-    graph.get(from)?.push({ node: to, weight: w });
-    graph.get(to)?.push({ node: from, weight: w }); // undirected
-  });
+/**
+ * Dijkstra's shortest path with a binary heap.
+ *
+ * Was O(V^2 log V) — it re-sorted the entire frontier on every iteration.
+ * Now O((V + E) log V) using lazy deletion: a node may be pushed more than
+ * once, and stale entries are skipped when popped.
+ */
+export function dijkstra(nodes, edges, startId, endId, { directed = false } = {}) {
+  assertEndpoints(nodes, startId, endId);
 
-  // Step 2: Init distances, visited set
-  const distances = {};
-  const prev = {};
+  if (edges.some((e) => Number.isFinite(e.weight) && e.weight < 0)) {
+    throw new Error("Dijkstra cannot handle negative edge weights. Use Bellman-Ford instead.");
+  }
+
+  const graph = buildAdjacency(nodes, edges, directed);
+  const distances = Object.create(null);
+  const prev = Object.create(null);
   const visited = new Set();
 
   nodes.forEach((node) => {
@@ -21,41 +32,31 @@ export function dijkstra(nodes, edges, startId, endId) {
   });
   distances[startId] = 0;
 
-  const queue = [...nodes.map((node) => node.id)];
+  const heap = new MinHeap();
+  heap.push(startId, 0);
+  let visitedCount = 0;
 
-  // Step 3: Dijkstra loop
-  while (queue.length > 0) {
-    queue.sort((a, b) => distances[a] - distances[b]);
-    const current = queue.shift();
+  while (heap.size > 0) {
+    const current = heap.pop();
+    if (visited.has(current)) continue; // stale heap entry
+    visited.add(current);
+    visitedCount++;
+
     if (current === endId) break;
 
-    visited.add(current);
     for (const neighbor of graph.get(current) || []) {
       if (visited.has(neighbor.node)) continue;
       const alt = distances[current] + neighbor.weight;
       if (alt < distances[neighbor.node]) {
         distances[neighbor.node] = alt;
         prev[neighbor.node] = current;
+        heap.push(neighbor.node, alt);
       }
     }
   }
 
-  // Step 4: Build path from end to start
-  const path = [];
-  let current = endId;
-  while (current) {
-    path.unshift(current);
-    current = prev[current];
-  }
+  const path = reconstructPath(prev, startId, endId);
+  if (!path) return noPath();
 
-  // Step 5: Convert to edge path
-  const pathEdges = [];
-  for (let i = 0; i < path.length - 1; i++) {
-    pathEdges.push({ from: path[i], to: path[i + 1] });
-  }
-
-  const totalCost = distances[endId];
-  console.log("✅ Shortest path result:", { pathNodes: path, pathEdges, totalCost });
-
-  return { pathNodes: path, pathEdges, totalCost };
+  return foundPath(path, distances[endId], { visitedCount });
 }
